@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--https://github.com/streamproc/MediaStreamRecorder/blob/master/demos/audio-recorder.html-->
+        <script src="https://cdn.WebRTC-Experiment.com/MediaStreamRecorder.js"></script>
+        <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    </head>
+    <body>
+        Fishackathon <em>&gt;&lt;&gt;</em>
+        <div id="listening" style="display: none">
+            Listening...
+        </div>
+        <div id="result-boat" style="display: none">
+            <div style="color:red; font-size: 42pt; font-weight: bold;">
+                BOAT!
+            </div>
+        </div>
+        <div id="result-no-boat" style="display: none">
+            Nothing to see here...
+        </div>
+        <div id="response" style="white-space: pre-wrap ; display: block; font-size: small;">
+            (response)
+        </div>
+        <script type="text/javascript">
+            debugger
+            var mediaConstraints = {
+                audio: true
+            };
+
+            navigator.getUserMedia(mediaConstraints, onMediaSuccess, onMediaError);
+
+            function onMediaSuccess(stream) {
+                mediaRecorder = new MediaStreamRecorder(stream);  // (var)
+                mediaRecorder.mimeType = 'audio/wav'; // audio/webm or audio/ogg or audio/wav
+                mediaRecorder.ondataavailable = function (blob) {
+                    document.getElementById("listening").style.display = "block";
+
+                    // POST/PUT "Blob" using FormData/XHR2
+                    // var blobURL = URL.createObjectURL(blob);
+                    // document.write('<a href="' + blobURL + '">' + blobURL + '</a> ||| ');
+                    uploadToServer(blob);
+                };
+
+                function sample() {
+                    console.log("sampling")
+                    mediaRecorder.start(3000);
+                    setTimeout(function(){
+                        console.log("sending")
+                        mediaRecorder.stop();
+                        sample();
+                    }, 2000)
+                }
+
+                sample()
+
+            }
+
+            function onMediaError(e) {
+
+                console.error('media error', e);
+            }
+
+            function uploadToServer(blob) {
+                var file = new File([blob], 'msr-' + (new Date).toISOString().replace(/:|\./g, '-') + '.wav', {
+                    type: 'audio/wav'
+                });
+
+                // create FormData
+                var formData = new FormData();
+                formData.append('audio-filename', file.name);
+                formData.append('audio-blob', file);
+
+                makeXMLHttpRequest('http://localhost:9082/save' + window.location.search, formData, function(response) {
+                    console.log('File uploaded');
+                    document.getElementById("response").textContent = response;
+                    response = JSON.parse(response);
+                    console.log(response);
+                    if (response.prediction && response.score > response.threshold) {
+                        document.getElementById("result-boat").style.display = "block";
+                        document.getElementById("result-no-boat").style.display = "none";
+                    } else {
+                        document.getElementById("result-boat").style.display = "none";
+                        document.getElementById("result-no-boat").style.display = "block";
+                    }
+                });
+            }
+
+            function makeXMLHttpRequest(url, data, callback) {
+                var request = new XMLHttpRequest();
+                request.onreadystatechange = function() {
+                    if (request.readyState == 4 && request.status == 200) {
+                        callback(request.response);
+                    }
+                };
+                request.open('POST', url);
+                request.send(data);
+            }
+
+
+        </script>
+    </body>
+</html>

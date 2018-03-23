@@ -1,0 +1,4 @@
+*.pyc
+.ipynb*
+models
+sounds-spectrogram.pkl
